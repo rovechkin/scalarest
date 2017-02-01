@@ -4,15 +4,22 @@ import com.typesafe.scalalogging.LazyLogging
 
 
 case class Config(
-                   mode: Option[Config=>Unit] = None
+                   mode: Option[Config=>Unit] = None,
+                   file: Option[String]= None
                  )
-
 object Client extends LazyLogging{
   def main(args: Array[String]):Unit = {
     val parser = new scopt.OptionParser[Config]("client") {
       head("client", "0.1")
       help("help") text ("prints this usage text")
-
+      cmd("replay") action { (_, c) =>
+        c.copy(mode = Some({c=> Replay.go(c)
+        })) } text("Reply URLs from file") children(
+        opt[String]("file") valueName(s"<file>") text(
+          "File with list of urls. One per line."
+          )
+          action { (x, c) => c.copy(file = Some(x)) }
+      )
     }
 
     parser.parse(args, Config()) match {
@@ -22,6 +29,13 @@ object Client extends LazyLogging{
           parser.usage
           sys.exit(1)
         } else {
+          try {
+            (config.mode.get) (config)
+          } catch {
+            case e: Throwable =>
+              logger.error("Exception thrown in  " + config.mode.get.toString + " exception: " + e.toString)
+              sys.exit(1)
+          }
           sys.exit(0)
         }
 
