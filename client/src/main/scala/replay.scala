@@ -1,12 +1,13 @@
-package client
+package client.Replay
 
+import client.{Config, FutureUtil}
 import akka.actor.ActorSystem
 import com.typesafe.scalalogging.LazyLogging
 import spray.client.pipelining._
 import spray.http.{HttpRequest, HttpResponse}
 
 import scala.concurrent.{Await, Future, Promise}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 import scala.io.Source
 import scala.concurrent.duration._
 
@@ -16,8 +17,8 @@ object Replay extends LazyLogging{
   implicit val system = as
   import system.dispatcher // execution context for futures
 
-  def go(c:Config) = {
-    val sf = Source.fromFile(c.file.get).getLines.filter(!_.startsWith("#")).map{
+  def go(file:String) = {
+    val sf = Source.fromFile(file).getLines.filter(!_.startsWith("#")).map{
       new UrlQuery(_,as).fetch()
     }.toList
 
@@ -25,24 +26,32 @@ object Replay extends LazyLogging{
     for(e<-r) {
       e match{
         case Success(s) =>
-          logger.info(s.toString)
+          println(s"****${s._1}***** \n ${s._2}")
+          println(s"****End of ${s._1}*****")
         case Failure(f) =>
-          logger.error(f.toString)
+          f match {
+            case UrlError(u, e) =>
+              logger.error(s"$u : $e")
+            case _ =>
+              logger.error(s"$f")
+          }
       }
     }
   }
 
 }
 
+case class UrlError(url:String, e:Throwable) extends Throwable
+
 class UrlQuery(url:String, as:ActorSystem) extends LazyLogging {
   implicit val system = as
   import system.dispatcher // execution context for futures
 
   type Entity= HttpResponse
-  def fetch():Future[Entity] ={
+  def fetch():Future[(String,Entity)] ={
     logger.info(s"fetch: $url")
-    val p = Promise[Entity]
-    def responseFuture():Future[HttpResponse] = {
+    val p = Promise[(String,Entity)]
+    def responseFuture():Future[Entity] = {
       val pipeline =
         logRequest(showRequest _) ~>
           sendReceive ~>
@@ -53,15 +62,15 @@ class UrlQuery(url:String, as:ActorSystem) extends LazyLogging {
       }
     }
 
-    def execReques = {
+    def execRequest = {
       responseFuture onComplete{
         case Success(s)=>
-          p.success(s)
+          p.success((url,s))
         case Failure(f) =>
-          p.failure(f)
+          p.failure(UrlError(url,f))
       }
     }
-    Future{execReques}
+    Future{execRequest}
     p.future
   }
 

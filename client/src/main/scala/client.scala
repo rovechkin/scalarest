@@ -1,5 +1,6 @@
 package client
 
+import client.Replay._
 import com.typesafe.scalalogging.LazyLogging
 
 
@@ -13,7 +14,7 @@ object Client extends LazyLogging{
       head("client", "0.1")
       help("help") text ("prints this usage text")
       cmd("replay") action { (_, c) =>
-        c.copy(mode = Some({c=> Replay.go(c)
+        c.copy(mode = Some({c=> Replay.Replay.go(c.file.get)
         })) } text("Reply URLs from file") children(
         opt[String]("file") valueName(s"<file>") text(
           "File with list of urls. One per line."
