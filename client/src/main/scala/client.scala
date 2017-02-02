@@ -30,7 +30,7 @@ object Client extends LazyLogging{
           sys.exit(1)
         } else {
           try {
-            (config.mode.get) (config)
+            config.mode.get (config)
           } catch {
             case e: Throwable =>
               logger.error("Exception thrown in  " + config.mode.get.toString + " exception: " + e.toString)
