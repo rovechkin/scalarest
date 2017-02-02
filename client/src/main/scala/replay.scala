@@ -1,4 +1,4 @@
-package client.Replay
+package client.replay
 
 import client.{Config, FutureUtil}
 import akka.actor.ActorSystem
@@ -49,7 +49,7 @@ class UrlQuery(url:String, as:ActorSystem) extends LazyLogging {
 
   type Entity= HttpResponse
   def fetch():Future[(String,Entity)] ={
-    logger.info(s"fetch: $url")
+    logger.debug(s"fetch: $url")
     val p = Promise[(String,Entity)]
     def responseFuture():Future[Entity] = {
       val pipeline =
