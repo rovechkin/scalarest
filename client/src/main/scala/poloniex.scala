@@ -12,6 +12,8 @@ import scala.util.{Failure, Success, Try}
 import concurrent.duration._
 import spray.httpx.SprayJsonSupport._
 
+import scala.annotation.tailrec
+
 case class Ask(q:Double,v:Double)
 case class Bid(q:Double,v:Double)
 case class Depth(asks:Seq[Ask],bids:Seq[Bid])
@@ -38,7 +40,20 @@ object Poloniex extends LazyLogging{
     val as = ActorSystem("PoloniexAs")
     Try{Await.result(new DepthQuery(pair,as).fetch(),10.seconds)} match {
       case Success(s)=>
-        println(s)
+        val a = s.asks.sortBy(-_.q)
+        val b = s.bids.sortBy(_.q)
+        @tailrec
+        def loop(p1:Seq[Ask],p2:Seq[Bid],r:Seq[String]):Seq[String] ={
+          (p1,p2) match {
+            case (l,Nil) => l.reverse.map{p=>s"${p.q}\t\t${p.v}\t\t-\t\t-"} ++ r
+            case (Nil,l) => l.reverse.map{p=>s"-\t\t-\t\t${p.q}\t\t${p.v}"} ++ r
+            case(l1,l2) => loop(l1.tail,l2.tail,s"${l1.head.q}\t\t${l1.head.v}\t\t${l2.head.q}\t\t${l2.head.v}" +: r)
+          }
+        }
+        val ll = loop(a,b,Seq.empty[String])
+        println("Ask\t\tVol\t\tBid\t\tVol")
+        for(l<-ll) println(l)
+
       case Failure(f) =>
         logger.error(f.toString)
     }
